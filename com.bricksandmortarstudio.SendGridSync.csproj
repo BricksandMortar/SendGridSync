@@ -51,6 +51,7 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Data.Entity" />
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -63,8 +64,8 @@
     <Compile Include="Migrations\001_AddTable.cs" />
     <Compile Include="Model\CodeGenerated\PersonAliasHistoryService.cs" />
     <Compile Include="Model\PersonAliasHistory.cs" />
+    <Compile Include="Model\PersonAliasHistoryService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Rest\Controllers\CodeGenerated\PersonAliasHistoriesController.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
