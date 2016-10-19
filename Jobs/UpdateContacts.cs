@@ -48,14 +48,16 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext ).Queryable().AsNoTracking().Select( a => a.PersonAliasId );
             var notYetSynced = FindNotYetSyncedPersonAlises( rockContext, previouslySyncedPersonAliasIds ).ToList();
 
-            var historicSyncMarker = RockDateTime.Now.AddDays(dayInterval);
+            var historicSyncMarker = RockDateTime.Now.AddDays(-dayInterval);
             var needReSyncPersonAliases = FindOldSyncedPeople( rockContext, historicSyncMarker ).ToList();
 
-            Sync( notYetSynced );
+            int synCount = Sync( notYetSynced );
+            int reSyncCount = 0;
             if ( needReSyncPersonAliases.Any() )
             {
-                Sync( needReSyncPersonAliases, true );
+               reSyncCount = Sync( needReSyncPersonAliases, true );
             }
+            context.Result = string.Format( "{0} people synced for the first time, {1} people updated", synCount, reSyncCount );
         }
 
         private bool CheckCustomFields()
@@ -63,7 +65,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             var customFields = GetCustomFields();
             if ( customFields == null )
             {
-                return false;
+                throw new Exception( "Unable to examine SendGrid custom fields" );
             }
             if ( customFields.custom_fields.All( c => c.name != "title" ) )
             {
@@ -100,7 +102,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             {
                 return true;
             }
-            return false;
+            throw new Exception( string.Format("Unable to create SendGrid custom field {0}", name) );
         }
 
         private CustomFields GetCustomFields()
@@ -122,7 +124,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 };
                 return JsonConvert.DeserializeObject<CustomFields>( response.Content, settings );
             }
-            return null;
+            throw new Exception( "Unable to obtain existing custom fields from SendGrid");
         }
 
         private static IEnumerable<PersonAlias> FindNotYetSyncedPersonAlises( RockContext rockContext, IQueryable<int> syncedPersonAliasIds )
@@ -143,35 +145,42 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
         private static IEnumerable<PersonAlias> FindOldSyncedPeople( RockContext rockContext, DateTime historicSyncMarker )
         {
-            var previousFireTime = historicSyncMarker.AddSeconds( 60 );
+            historicSyncMarker = historicSyncMarker.AddSeconds( 60 );
             var syncedPersonAliases = new PersonAliasHistoryService( rockContext )
                 .Queryable()
-                .Where( a => a.LastUpdated <= previousFireTime && a.PersonAlias.Person.EmailPreference == EmailPreference.EmailAllowed && a.PersonAlias.Person.Email != null && a.PersonAlias.Person.Email != "" )
+                .Where( a => a.LastUpdated <=
+            historicSyncMarker && a.PersonAlias.Person.EmailPreference == EmailPreference.EmailAllowed && a.PersonAlias.Person.Email != null && a.PersonAlias.Person.Email != "" )
                 .Select( a => a.PersonAlias );
             return syncedPersonAliases;
         }
 
-        private void Sync( IList<PersonAlias> personAliases, bool resyncing = false )
+        private int Sync( IList<PersonAlias> personAliases, bool resyncing = false )
         {
             var restClient = new RestClient( SENDGRID_BASE_URL );
 
+            int syncCount = 0;
             for ( int takenCount = 0; takenCount < personAliases.Count; takenCount = takenCount + SENDGRID_ADD_RECEIPIENT_MAX_COUNT )
             {
                 var request = BuildContactsRequest( personAliases.Skip( takenCount ).Take( SENDGRID_ADD_RECEIPIENT_MAX_COUNT ) );
                 var response = restClient.Execute( request );
-                if ( response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created )
+                if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created)
                 {
-                    personAliases = ExtractUpdatedAliasIds( personAliases, response );
-                    if ( !resyncing )
+                    personAliases = ExtractUpdatedAliasIds(personAliases, response);
+                    if (!resyncing)
                     {
-                        AddToSendGridAliasHistory( personAliases );
+                        syncCount += AddToSendGridAliasHistory(personAliases);
                     }
                     else
                     {
-                        UpdateSendGridAliasHistory( personAliases );
+                        syncCount += UpdateSendGridAliasHistory(personAliases);
                     }
                 }
+                else
+                {
+                    throw new Exception( "One or more errors occurred syncing individuals." + Environment.NewLine + response.Content );
+                }
             }
+            return syncCount;
         }
 
         private static IList<PersonAlias> ExtractUpdatedAliasIds( IList<PersonAlias> personAliases, IRestResponse response )
@@ -193,11 +202,16 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             return personAliases;
         }
 
-        private static void UpdateSendGridAliasHistory( IEnumerable<PersonAlias> personAliases )
+        private static int UpdateSendGridAliasHistory( IEnumerable<PersonAlias> personAliases )
         {
+            if (!personAliases.Any())
+            {
+                return 0;
+            }
             var now = RockDateTime.Now;
             var rockContext = new RockContext();
             var personAliasHistoryService = new PersonAliasHistoryService( rockContext );
+            int updated = 0;
             foreach ( var personalias in personAliases )
             {
                 var personAliasHistory = personAliasHistoryService.GetByPersonAliasId( personalias.Id );
@@ -205,15 +219,18 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 {
                     personAliasHistory.LastUpdated = now;
                 }
+                updated++;
             }
             rockContext.SaveChanges();
+            return updated;
         }
 
-        private static void AddToSendGridAliasHistory( IEnumerable<PersonAlias> personAliases )
+        private static int AddToSendGridAliasHistory( IEnumerable<PersonAlias> personAliases )
         {
             var now = RockDateTime.Now;
             var rockContext = new RockContext();
             var personAliasHistoryService = new PersonAliasHistoryService( rockContext );
+            int synced = 0;
             foreach ( var aliasId in personAliases )
             {
                 var personAliasHistory = new PersonAliasHistory
@@ -222,8 +239,10 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                     LastUpdated = now
                 };
                 personAliasHistoryService.Add( personAliasHistory );
+                synced++;
             }
             rockContext.SaveChanges();
+            return synced;
         }
 
         private IRestRequest BuildContactsRequest( IEnumerable<PersonAlias> people )
