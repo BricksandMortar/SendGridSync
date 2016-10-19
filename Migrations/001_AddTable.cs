@@ -1,8 +1,9 @@
 ﻿using Rock.Plugin;
 
-namespace com.bricksandmortarstudio.SendGridSync
+namespace com.bricksandmortarstudio.SendGridSync.Migrations
 {
-    public class AddTable : Rock.Plugin.Migration
+    [MigrationNumber( 1, "1.5.0" )]
+    public class AddTable : Migration
     {
         public override void Up()
         {
