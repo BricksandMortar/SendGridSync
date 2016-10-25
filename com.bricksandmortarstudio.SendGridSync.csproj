@@ -61,6 +61,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Constants\SendGridRequest.cs" />
+    <Compile Include="DTO\CustomField.cs" />
+    <Compile Include="DTO\CustomFields.cs" />
+    <Compile Include="DTO\Error.cs" />
+    <Compile Include="DTO\SendGridPerson.cs" />
+    <Compile Include="DTO\SendGridResults.cs" />
+    <Compile Include="Jobs\SendGridRequestUtil.cs" />
     <Compile Include="Jobs\UpdateContacts.cs" />
     <Compile Include="Migrations\001_AddTable.cs" />
     <Compile Include="Model\CodeGenerated\PersonAliasHistoryService.cs" />

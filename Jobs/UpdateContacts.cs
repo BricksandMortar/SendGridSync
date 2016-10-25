@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
 using System.Net;
+using com.bricksandmortarstudio.SendGridSync.Constants;
+using com.bricksandmortarstudio.SendGridSync.DTO;
 using com.bricksandmortarstudio.SendGridSync.Model;
 using Newtonsoft.Json;
 using Quartz;
@@ -19,26 +21,20 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
     [DisallowConcurrentExecution]
     public class UpdateContacts : IJob
     {
-        private const string SENDGRID_BASE_URL = "https://api.sendgrid.com/v3/";
-        private const string RECIPIENTS_RESOURCE = "contactdb/recipients";
-        private const string CUSTOM_FIELDS_RESOURCE = "contactdb/custom_fields";
-        private const int SENDGRID_ADD_RECEIPIENT_MAX_COUNT = 200;
-        private string _apiKey;
-
         public void Execute( IJobExecutionContext context )
         {
             var dataMap = context.JobDetail.JobDataMap;
-            _apiKey = dataMap.GetString( "APIKey" );
+            string apiKey = dataMap.GetString( "APIKey" );
             int dayInterval = dataMap.GetIntValue("dayInterval");
 
             //Check API Key exists
-            if ( string.IsNullOrWhiteSpace( _apiKey ) )
+            if ( string.IsNullOrWhiteSpace( apiKey ) )
             {
                 return;
             }
 
             //Check all the custom fields have been created for the SendGrid marketing campaign.
-            bool fieldsExist = CheckCustomFields();
+            bool fieldsExist = SendGridRequestUtil.CheckCustomFields( apiKey );
             if ( !fieldsExist )
             {
                 return;
@@ -46,280 +42,19 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
             var rockContext = new RockContext();
             var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext ).Queryable().AsNoTracking().Select( a => a.PersonAliasId );
-            var notYetSynced = FindNotYetSyncedPersonAlises( rockContext, previouslySyncedPersonAliasIds ).ToList();
+            var notYetSynced = SendGridRequestUtil.FindNotYetSyncedPersonAlises( rockContext, previouslySyncedPersonAliasIds ).ToList();
 
             var historicSyncMarker = RockDateTime.Now.AddDays(-dayInterval);
-            var needReSyncPersonAliases = FindOldSyncedPeople( rockContext, historicSyncMarker ).ToList();
+            var needReSyncPersonAliases = SendGridRequestUtil.FindOldSyncedPeople( rockContext, historicSyncMarker ).ToList();
 
-            int synCount = Sync( notYetSynced );
+            int synCount = SendGridRequestUtil.Sync( notYetSynced, apiKey );
             int reSyncCount = 0;
             if ( needReSyncPersonAliases.Any() )
             {
-               reSyncCount = Sync( needReSyncPersonAliases, true );
+               reSyncCount = SendGridRequestUtil.Sync( needReSyncPersonAliases, apiKey, true );
             }
             context.Result = string.Format( "{0} people synced for the first time, {1} people updated", synCount, reSyncCount );
         }
-
-        private bool CheckCustomFields()
-        {
-            var customFields = GetCustomFields();
-            if ( customFields == null )
-            {
-                throw new Exception( "Unable to examine SendGrid custom fields" );
-            }
-            if ( customFields.custom_fields.All( c => c.name != "title" ) )
-            {
-                bool result = CreateCustomField( "title", "text" );
-                if ( !result )
-                {
-                    return false;
-                }
-            }
-            if ( customFields.custom_fields.All( c => c.name != "person_alias_id" ) )
-            {
-                bool result = CreateCustomField( "person_alias_id", "number" );
-                if ( !result )
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private bool CreateCustomField( string name, string type )
-        {
-            var restClient = new RestClient( SENDGRID_BASE_URL );
-            var request = new RestRequest( Method.POST )
-            {
-                RequestFormat = DataFormat.Json,
-                Resource = CUSTOM_FIELDS_RESOURCE
-            };
-            request.AddHeader( "Authorization", "Bearer " + _apiKey );
-
-            request.AddBody( new { name = name, type = type } );
-            var response = restClient.Execute( request );
-            if ( response.StatusCode == HttpStatusCode.Created )
-            {
-                return true;
-            }
-            throw new Exception( string.Format("Unable to create SendGrid custom field {0}", name) );
-        }
-
-        private CustomFields GetCustomFields()
-        {
-            var restClient = new RestClient( SENDGRID_BASE_URL );
-            var request = new RestRequest( Method.GET )
-            {
-                RequestFormat = DataFormat.Json,
-                Resource = CUSTOM_FIELDS_RESOURCE
-            };
-            request.AddHeader( "Authorization", "Bearer " + _apiKey );
-            var response = restClient.Execute( request );
-            if ( response.StatusCode == HttpStatusCode.OK )
-            {
-                var settings = new JsonSerializerSettings
-                {
-                    NullValueHandling = NullValueHandling.Ignore,
-                    MissingMemberHandling = MissingMemberHandling.Ignore
-                };
-                return JsonConvert.DeserializeObject<CustomFields>( response.Content, settings );
-            }
-            throw new Exception( "Unable to obtain existing custom fields from SendGrid");
-        }
-
-        private static IEnumerable<PersonAlias> FindNotYetSyncedPersonAlises( RockContext rockContext, IQueryable<int> syncedPersonAliasIds )
-        {
-            var personAliasService = new PersonAliasService( rockContext );
-
-            var personAlises = personAliasService
-                .Queryable("Person")
-                .AsNoTracking()
-                .Where(
-                    a =>
-                        !syncedPersonAliasIds.Any(
-                            s => s == a.Id ) && 
-                            a.Person.Email != null && a.Person.Email != ""
-                            && a.Person.EmailPreference == EmailPreference.EmailAllowed);
-            return personAlises;
-        }
-
-        private static IEnumerable<PersonAlias> FindOldSyncedPeople( RockContext rockContext, DateTime historicSyncMarker )
-        {
-            historicSyncMarker = historicSyncMarker.AddSeconds( 60 );
-            var syncedPersonAliases = new PersonAliasHistoryService( rockContext )
-                .Queryable()
-                .Where( a => a.LastUpdated <=
-            historicSyncMarker && a.PersonAlias.Person.EmailPreference == EmailPreference.EmailAllowed && a.PersonAlias.Person.Email != null && a.PersonAlias.Person.Email != "" )
-                .Select( a => a.PersonAlias );
-            return syncedPersonAliases;
-        }
-
-        private int Sync( IList<PersonAlias> personAliases, bool resyncing = false )
-        {
-            var restClient = new RestClient( SENDGRID_BASE_URL );
-
-            int syncCount = 0;
-            for ( int takenCount = 0; takenCount < personAliases.Count; takenCount = takenCount + SENDGRID_ADD_RECEIPIENT_MAX_COUNT )
-            {
-                var request = BuildContactsRequest( personAliases.Skip( takenCount ).Take( SENDGRID_ADD_RECEIPIENT_MAX_COUNT ) );
-                var response = restClient.Execute( request );
-                if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created)
-                {
-                    personAliases = ExtractUpdatedAliasIds(personAliases, response);
-                    if (!resyncing)
-                    {
-                        syncCount += AddToSendGridAliasHistory(personAliases);
-                    }
-                    else
-                    {
-                        syncCount += UpdateSendGridAliasHistory(personAliases);
-                    }
-                }
-                else
-                {
-                    throw new Exception( "One or more errors occurred syncing individuals." + Environment.NewLine + response.Content );
-                }
-            }
-            return syncCount;
-        }
-
-        private static IList<PersonAlias> ExtractUpdatedAliasIds( IList<PersonAlias> personAliases, IRestResponse response )
-        {
-            var settings = new JsonSerializerSettings
-            {
-                NullValueHandling = NullValueHandling.Ignore,
-                MissingMemberHandling = MissingMemberHandling.Ignore
-            };
-            var sendGridResults = JsonConvert.DeserializeObject<SendGridResults>( response.Content, settings );
-            var allIndicestoRemove = new List<int>();
-            allIndicestoRemove.AddRange( sendGridResults.error_indices );
-            allIndicestoRemove.AddRange( sendGridResults.unmodified_indices );
-            var indicesToRemoveSorted = allIndicestoRemove.OrderByDescending(i => i).Distinct();
-            foreach ( int index in indicesToRemoveSorted )
-            {
-                personAliases.RemoveAt( index );
-            }
-            return personAliases;
-        }
-
-        private static int UpdateSendGridAliasHistory( IEnumerable<PersonAlias> personAliases )
-        {
-            if (!personAliases.Any())
-            {
-                return 0;
-            }
-            var now = RockDateTime.Now;
-            var rockContext = new RockContext();
-            var personAliasHistoryService = new PersonAliasHistoryService( rockContext );
-            int updated = 0;
-            foreach ( var personalias in personAliases )
-            {
-                var personAliasHistory = personAliasHistoryService.GetByPersonAliasId( personalias.Id );
-                if ( personAliasHistory != null )
-                {
-                    personAliasHistory.LastUpdated = now;
-                }
-                updated++;
-            }
-            rockContext.SaveChanges();
-            return updated;
-        }
-
-        private static int AddToSendGridAliasHistory( IEnumerable<PersonAlias> personAliases )
-        {
-            var now = RockDateTime.Now;
-            var rockContext = new RockContext();
-            var personAliasHistoryService = new PersonAliasHistoryService( rockContext );
-            int synced = 0;
-            foreach ( var aliasId in personAliases )
-            {
-                var personAliasHistory = new PersonAliasHistory
-                {
-                    PersonAliasId = aliasId.Id,
-                    LastUpdated = now
-                };
-                personAliasHistoryService.Add( personAliasHistory );
-                synced++;
-            }
-            rockContext.SaveChanges();
-            return synced;
-        }
-
-        private IRestRequest BuildContactsRequest( IEnumerable<PersonAlias> people )
-        {
-            var payload = people.Select( p => new SendGridPerson( p.Person.Email, p.Id, p.Person.FirstName, p.Person.LastName, p.Person.TitleValue != null ? p.Person.TitleValue.Value : "" ) ).ToList();
-            var request = new RestRequest( Method.POST )
-            {
-                RequestFormat = DataFormat.Json,
-                Resource = RECIPIENTS_RESOURCE
-            };
-            request.AddHeader( "Authorization", "Bearer " + _apiKey );
-            request.AddParameter("application/json", JsonConvert.SerializeObject( payload,
-                            new JsonSerializerSettings
-                            {
-                                NullValueHandling = NullValueHandling.Ignore,
-                            } ), ParameterType.RequestBody );
-            return request;
-        }
     }
-
-    internal class SendGridPerson
-    {
-        public SendGridPerson( string email, int aliasId, string firstName, string lastName, string title )
-        {
-            Email = email;
-            PersonAliasId = aliasId;
-            FirstName = firstName;
-            LastName = lastName;
-            Title = title;
-        }
-        public bool ShouldSerializeTitle()
-        {
-            return !string.IsNullOrEmpty( Title );
-        }
-
-        [JsonProperty( PropertyName = "person_alias_id" )]
-        public int PersonAliasId { get; set; }
-        [JsonProperty( PropertyName = "email" )]
-        public string Email { get; set; }
-        [JsonProperty( PropertyName = "first_name" )]
-        public string FirstName { get; set; }
-        [JsonProperty( PropertyName = "last_name" )]
-        public string LastName { get; set; }
-        [JsonProperty( PropertyName = "title", NullValueHandling = NullValueHandling.Ignore )]
-        public string Title { get; set; }
-    }
-
-    // ReSharper disable InconsistentNaming
-    internal class Error
-    {
-        public string message { get; set; }
-        public List<int> error_indices { get; set; }
-    }
-
-    internal class SendGridResults
-    {
-
-        public int error_count { get; set; }
-        public List<int> error_indices { get; set; }
-        public List<int> unmodified_indices { get; set; }
-        public int new_count { get; set; }
-        public List<string> persisted_recipients { get; set; }
-        public int updated_count { get; set; }
-        public List<Error> errors { get; set; }
-    }
-
-    public class CustomField
-    {
-        public int id { get; set; }
-        public string name { get; set; }
-        public string type { get; set; }
-    }
-
-    public class CustomFields
-    {
-        public List<CustomField> custom_fields { get; set; }
-    }
-    // ReSharper restore InconsistentNaming
 
 }
