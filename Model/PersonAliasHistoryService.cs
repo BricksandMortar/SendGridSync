@@ -17,7 +17,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Model
         /// <returns></returns>
         public PersonAliasHistory GetByPersonAliasId( int personAliasId )
         {
-            return this.Queryable().FirstOrDefault( a => a.PersonAliasId == personAliasId );
+            return Queryable().FirstOrDefault( a => a.PersonAliasId == personAliasId );
         }
     }
 }

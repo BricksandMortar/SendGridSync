@@ -73,15 +73,20 @@
     <Compile Include="DTO\CustomField.cs" />
     <Compile Include="DTO\CustomFields.cs" />
     <Compile Include="DTO\Error.cs" />
+    <Compile Include="DTO\List.cs" />
+    <Compile Include="DTO\ListsResponse.cs" />
     <Compile Include="DTO\SendGridPerson.cs" />
     <Compile Include="DTO\SendGridResults.cs" />
-    <Compile Include="Jobs\SendGridRequestUtil.cs" />
+    <Compile Include="Helper\ApiHelper.cs" />
+    <Compile Include="Jobs\SyncCampustoList.cs" />
+    <Compile Include="Jobs\SyncGrouptoList.cs" />
     <Compile Include="Jobs\UpdateContacts.cs" />
     <Compile Include="Migrations\001_AddTable.cs" />
     <Compile Include="Model\CodeGenerated\PersonAliasHistoryService.cs" />
     <Compile Include="Model\PersonAliasHistory.cs" />
     <Compile Include="Model\PersonAliasHistoryService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Helper\SyncHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -89,9 +94,7 @@
   <ItemGroup>
     <WCFMetadata Include="Service References\" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Utils\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

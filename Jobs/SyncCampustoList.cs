@@ -18,23 +18,23 @@ using Rock.Model;
 namespace com.bricksandmortarstudio.SendGridSync.Jobs
 {
     [TextField( "API Key", "The SendGrid API key.", false, "", "", order:3 )]
-    [GroupField("Synced Group", "The group that should be synced with a given SendGrid List", true, key:"group", order:1)]
+    [CampusField("Campus", "The campus that should be synced", true, "", false, key:"campus", order:1)]
     [IntegerField("Existing Person Update Interval", "The number of days before an existing SendGrid record should be resynced", true, 7, key: "dayInterval", order:2 )]
     [TextField("List Name", "The SendGrid")]
     [DisallowConcurrentExecution]
-    public class SyncGrouptoList : IJob
+    public class SyncCampustoList : IJob
     {
         public void Execute( IJobExecutionContext context )
         {
             var dataMap = context.JobDetail.JobDataMap;
             string apiKey = dataMap.GetString( "APIKey" );
             string listName = dataMap.GetString("ListName");
-            string groupGuid = dataMap.GetString("group");
+            string campusGuid = dataMap.GetString( "campus" );
 
-            var group = groupGuid.AsGuidOrNull();
+            var campus = campusGuid.AsGuidOrNull();
 
             //Check API Key exists and group guid is not null
-            if ( string.IsNullOrWhiteSpace( apiKey ) || !group.HasValue || string.IsNullOrWhiteSpace( listName ) )
+            if ( string.IsNullOrWhiteSpace( apiKey ) || !campus.HasValue || string.IsNullOrWhiteSpace( listName ))
             {
                 return;
             }
@@ -52,14 +52,18 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 throw new Exception( "Unable to identify list identifier" );
             }
 
-
+            var familyGuid = Rock.SystemGuid.GroupType.GROUPTYPE_FAMILY.AsGuid();
             var rockContext = new RockContext();
-            var groupMembers = new GroupMemberService(rockContext)
-                .Queryable("Group,Person")
-                .Where(a => a.Group.Guid == group)
-                .Select(p => p.Person);
 
-            var groupMemberAliasIds = groupMembers.Select(a => a.PrimaryAliasId);
+            var people = new GroupService(rockContext)
+                .Queryable("GroupType,GroupType.Groups")
+                .Where(gt => gt.GroupType.Guid == familyGuid)
+                .SelectMany(gt => gt.Groups)
+                .Where(g => g.Campus.Guid == campus.Value)
+                .SelectMany(g => g.Members)
+                .Select(gm => gm.Person);
+
+            var groupMemberAliasIds = people.Select(a => a.PrimaryAliasId);
 
             var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext )
                 .Queryable()
@@ -67,15 +71,15 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 .AsNoTracking()
                 .Select( a => a.PersonAliasId );
 
-            var notYetSynced = groupMembers
+            var notYetSynced = people
                 .Where(g => g.PrimaryAliasId.HasValue && !previouslySyncedPersonAliasIds.Contains(g.PrimaryAliasId.Value))
                 .Select(p => p.PrimaryAlias);
             
             SyncHelper.SyncContacts( notYetSynced, apiKey );
-          
+
             SyncHelper.AddPeopleToList(notYetSynced, listId.Value, apiKey);
 
-            context.Result = "Group synced successfully";
+            context.Result = "Campus synced successfully";
         }
     }
 

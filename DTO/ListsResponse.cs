@@ -2,7 +2,7 @@
 
 namespace com.bricksandmortarstudio.SendGridSync.DTO
 {
-    public class Lists
+    public class ListsResponse
     {
         public List<List> lists { get; set; }
     }

@@ -30,8 +30,8 @@ namespace com.bricksandmortarstudio.SendGridSync.Model
     {
         public PersonAliasHistoryConfiguration()
         {
-            this.HasRequired( p => p.PersonAlias ).WithMany().HasForeignKey( a => a.PersonAliasId ).WillCascadeOnDelete( true );
-            this.HasEntitySetName( "PeopleAliasHistory" );
+            HasRequired( p => p.PersonAlias ).WithMany().HasForeignKey( a => a.PersonAliasId ).WillCascadeOnDelete( true );
+            HasEntitySetName( "PeopleAliasHistory" );
         }
     }
 }

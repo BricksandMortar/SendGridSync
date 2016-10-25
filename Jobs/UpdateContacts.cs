@@ -6,7 +6,7 @@ using System.Net;
 using com.bricksandmortarstudio.SendGridSync.Constants;
 using com.bricksandmortarstudio.SendGridSync.DTO;
 using com.bricksandmortarstudio.SendGridSync.Model;
-using com.bricksandmortarstudio.SendGridSync.Utils;
+using com.bricksandmortarstudio.SendGridSync.Helper;
 using Newtonsoft.Json;
 using Quartz;
 using RestSharp;
@@ -35,7 +35,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             }
 
             //Check all the custom fields have been created for the SendGrid marketing campaign.
-            bool fieldsExist = SendGridRequestUtil.CheckCustomFields( apiKey );
+            bool fieldsExist = SyncHelper.CheckCustomFields( apiKey );
             if ( !fieldsExist )
             {
                 return;
@@ -43,16 +43,16 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
             var rockContext = new RockContext();
             var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext ).Queryable().AsNoTracking().Select( a => a.PersonAliasId );
-            var notYetSynced = SendGridRequestUtil.FindNotYetSyncedPersonAlises( rockContext, previouslySyncedPersonAliasIds );
+            var notYetSynced = SyncHelper.FindNotYetSyncedPersonAlises( rockContext, previouslySyncedPersonAliasIds );
 
             var historicSyncMarker = RockDateTime.Now.AddDays(-dayInterval);
-            var needReSyncPersonAliases = SendGridRequestUtil.FindOldSyncedPeople( rockContext, historicSyncMarker );
+            var needReSyncPersonAliases = SyncHelper.FindResyncCandidates( rockContext, historicSyncMarker );
 
-            int synCount = SendGridRequestUtil.SyncContacts( notYetSynced, apiKey );
+            int synCount = SyncHelper.SyncContacts( notYetSynced, apiKey );
             int reSyncCount = 0;
             if ( needReSyncPersonAliases.Any() )
             {
-               reSyncCount = SendGridRequestUtil.SyncContacts( needReSyncPersonAliases, apiKey, true );
+               reSyncCount = SyncHelper.SyncContacts( needReSyncPersonAliases, apiKey, true );
             }
             context.Result = string.Format( "{0} people synced for the first time, {1} people updated", synCount, reSyncCount );
         }
