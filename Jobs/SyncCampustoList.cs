@@ -61,18 +61,19 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 .SelectMany(gt => gt.Groups)
                 .Where(g => g.Campus.Guid == campus.Value)
                 .SelectMany(g => g.Members)
-                .Select(gm => gm.Person);
+                .Select(gm => gm.Person).ToList();
 
-            var groupMemberAliasIds = people.Select(a => a.PrimaryAliasId);
+            var campusAttendees = people.Select(p => p.PrimaryAlias.Id);
 
-            var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext )
+            var previouslySyncedPersonAliasIds = new PersonAliasHistoryService(rockContext)
                 .Queryable()
-                .Where(a => groupMemberAliasIds.Contains(a.PersonAliasId) )
+                .Where(a => campusAttendees.Contains(a.PersonAlias.Id))
                 .AsNoTracking()
-                .Select( a => a.PersonAliasId );
+                .Select(a => a.PersonAliasId);
 
             var notYetSynced = people
-                .Where(g => g.PrimaryAliasId.HasValue && !previouslySyncedPersonAliasIds.Contains(g.PrimaryAliasId.Value))
+                .Where(g => (g.Aliases.All(a => previouslySyncedPersonAliasIds.Any(b => a.Id != b) )))
+                .ToList()
                 .Select(p => p.PrimaryAlias);
             
             SyncHelper.SyncContacts( notYetSynced, apiKey );

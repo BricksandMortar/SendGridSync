@@ -106,7 +106,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             return response;
         }
 
-        internal static int? CreateNewList( string listName, string apiKey )
+        internal static int? CreateNewList( string apiKey, string listName )
         {
             string body = JsonConvert.SerializeObject( new List { name = listName },
                 new JsonSerializerSettings
@@ -114,8 +114,8 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
                     NullValueHandling = NullValueHandling.Ignore,
                 } );
 
-            var response = CreateListRequest( apiKey, Method.GET, body );
-            if ( response.StatusCode == HttpStatusCode.OK )
+            var response = CreateListRequest( apiKey, Method.POST, body );
+            if ( response.StatusCode == HttpStatusCode.Created )
             {
                 var settings = new JsonSerializerSettings
                 {
