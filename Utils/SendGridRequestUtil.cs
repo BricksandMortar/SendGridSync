@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
 using System.Net;
+using System.Text;
 using com.bricksandmortarstudio.SendGridSync.Constants;
 using com.bricksandmortarstudio.SendGridSync.DTO;
 using com.bricksandmortarstudio.SendGridSync.Model;
@@ -12,7 +13,7 @@ using Rock;
 using Rock.Data;
 using Rock.Model;
 
-namespace com.bricksandmortarstudio.SendGridSync.Jobs
+namespace com.bricksandmortarstudio.SendGridSync.Utils
 {
     public class SendGridRequestUtil
     {
@@ -110,7 +111,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             return syncedPersonAliases;
         }
 
-        public static int Sync( IList<PersonAlias> personAliases, string apiKey, bool resyncing = false )
+        public static int SyncContacts( IList<PersonAlias> personAliases, string apiKey, bool resyncing = false )
         {
             var restClient = new RestClient(SendGridRequest.SENDGRID_BASE_URL );
 
@@ -216,6 +217,33 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                     NullValueHandling = NullValueHandling.Ignore,
                 } ), ParameterType.RequestBody );
             return request;
+        }
+
+        private static IRestRequest CheckIfListExists(string listName, string apiKey)
+        {
+            var restClient = new RestClient( SendGridRequest.SENDGRID_BASE_URL );
+            var request = new RestRequest( Method.GET )
+            {
+                RequestFormat = DataFormat.Json,
+                Resource = SendGridRequest.CUSTOM_FIELDS_RESOURCE
+            };
+            request.AddHeader( "Authorization", "Bearer " + apiKey );
+            var response = restClient.Execute( request );
+            if ( response.StatusCode == HttpStatusCode.OK )
+            {
+                var settings = new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore,
+                    MissingMemberHandling = MissingMemberHandling.Ignore
+                };
+                return JsonConvert.DeserializeObject<CustomFields>( response.Content, settings );
+            }
+            throw new Exception( "Unable to obtain existing custom fields from SendGrid" );
+        }
+
+        private static string GetRecipientId(string email)
+        {
+            return Convert.ToBase64String( Encoding.ASCII.GetBytes( email ) );
         }
     }
 }

@@ -6,6 +6,7 @@ using System.Net;
 using com.bricksandmortarstudio.SendGridSync.Constants;
 using com.bricksandmortarstudio.SendGridSync.DTO;
 using com.bricksandmortarstudio.SendGridSync.Model;
+using com.bricksandmortarstudio.SendGridSync.Utils;
 using Newtonsoft.Json;
 using Quartz;
 using RestSharp;
@@ -47,11 +48,11 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             var historicSyncMarker = RockDateTime.Now.AddDays(-dayInterval);
             var needReSyncPersonAliases = SendGridRequestUtil.FindOldSyncedPeople( rockContext, historicSyncMarker ).ToList();
 
-            int synCount = SendGridRequestUtil.Sync( notYetSynced, apiKey );
+            int synCount = SendGridRequestUtil.SyncContacts( notYetSynced, apiKey );
             int reSyncCount = 0;
             if ( needReSyncPersonAliases.Any() )
             {
-               reSyncCount = SendGridRequestUtil.Sync( needReSyncPersonAliases, apiKey, true );
+               reSyncCount = SendGridRequestUtil.SyncContacts( needReSyncPersonAliases, apiKey, true );
             }
             context.Result = string.Format( "{0} people synced for the first time, {1} people updated", synCount, reSyncCount );
         }
