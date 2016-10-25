@@ -84,7 +84,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Utils
             throw new Exception( "Unable to obtain existing custom fields from SendGrid");
         }
 
-        public static IEnumerable<PersonAlias> FindNotYetSyncedPersonAlises( RockContext rockContext, IQueryable<int> syncedPersonAliasIds )
+        public static IQueryable<PersonAlias> FindNotYetSyncedPersonAlises( RockContext rockContext, IQueryable<int> syncedPersonAliasIds )
         {
             var personAliasService = new PersonAliasService( rockContext );
 
@@ -100,7 +100,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Utils
             return personAlises;
         }
 
-        public static IEnumerable<PersonAlias> FindOldSyncedPeople( RockContext rockContext, DateTime historicSyncMarker )
+        public static IQueryable<PersonAlias> FindOldSyncedPeople( RockContext rockContext, DateTime historicSyncMarker )
         {
             historicSyncMarker = historicSyncMarker.AddSeconds( 60 );
             var syncedPersonAliases = new PersonAliasHistoryService( rockContext )
@@ -111,25 +111,26 @@ namespace com.bricksandmortarstudio.SendGridSync.Utils
             return syncedPersonAliases;
         }
 
-        public static int SyncContacts( IList<PersonAlias> personAliases, string apiKey, bool resyncing = false )
+        public static int SyncContacts( IQueryable<PersonAlias> personAliases, string apiKey, bool resyncing = false )
         {
             var restClient = new RestClient(SendGridRequest.SENDGRID_BASE_URL );
 
+            int personAliasesCount = personAliases.Count();
             int syncCount = 0;
-            for ( int takenCount = 0; takenCount < personAliases.Count; takenCount = takenCount + Constants.SendGridRequest.SENDGRID_ADD_RECEIPIENT_MAX_COUNT )
+            for ( int takenCount = 0; takenCount < personAliasesCount; takenCount = takenCount + Constants.SendGridRequest.SENDGRID_ADD_RECEIPIENT_MAX_COUNT )
             {
                 var request = BuildContactsRequest( personAliases.Skip( takenCount ).Take( Constants.SendGridRequest.SENDGRID_ADD_RECEIPIENT_MAX_COUNT ), apiKey );
                 var response = restClient.Execute( request );
                 if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created)
                 {
-                    personAliases = ExtractUpdatedAliasIds(personAliases, response);
+                    var personAliasesEnumerated = ExtractUpdatedAliasIds(personAliases, response);
                     if (!resyncing)
                     {
-                        syncCount += AddToSendGridAliasHistory(personAliases);
+                        syncCount += AddToSendGridAliasHistory( personAliasesEnumerated );
                     }
                     else
                     {
-                        syncCount += UpdateSendGridAliasHistory(personAliases);
+                        syncCount += UpdateSendGridAliasHistory( personAliasesEnumerated );
                     }
                 }
                 else
@@ -140,8 +141,9 @@ namespace com.bricksandmortarstudio.SendGridSync.Utils
             return syncCount;
         }
 
-        private static IList<PersonAlias> ExtractUpdatedAliasIds( IList<PersonAlias> personAliases, IRestResponse response )
+        private static IList<PersonAlias> ExtractUpdatedAliasIds( IQueryable<PersonAlias> personAliases, IRestResponse response )
         {
+            var personAlisesEnumerated = personAliases.ToList();
             var settings = new JsonSerializerSettings
             {
                 NullValueHandling = NullValueHandling.Ignore,
@@ -154,9 +156,9 @@ namespace com.bricksandmortarstudio.SendGridSync.Utils
             var indicesToRemoveSorted = allIndicestoRemove.OrderByDescending(i => i).Distinct();
             foreach ( int index in indicesToRemoveSorted )
             {
-                personAliases.RemoveAt( index );
+                personAlisesEnumerated.RemoveAt( index );
             }
-            return personAliases;
+            return personAlisesEnumerated;
         }
 
         private static int UpdateSendGridAliasHistory( IEnumerable<PersonAlias> personAliases )

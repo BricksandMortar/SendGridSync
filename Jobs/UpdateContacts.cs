@@ -43,10 +43,10 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
             var rockContext = new RockContext();
             var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext ).Queryable().AsNoTracking().Select( a => a.PersonAliasId );
-            var notYetSynced = SendGridRequestUtil.FindNotYetSyncedPersonAlises( rockContext, previouslySyncedPersonAliasIds ).ToList();
+            var notYetSynced = SendGridRequestUtil.FindNotYetSyncedPersonAlises( rockContext, previouslySyncedPersonAliasIds );
 
             var historicSyncMarker = RockDateTime.Now.AddDays(-dayInterval);
-            var needReSyncPersonAliases = SendGridRequestUtil.FindOldSyncedPeople( rockContext, historicSyncMarker ).ToList();
+            var needReSyncPersonAliases = SendGridRequestUtil.FindOldSyncedPeople( rockContext, historicSyncMarker );
 
             int synCount = SendGridRequestUtil.SyncContacts( notYetSynced, apiKey );
             int reSyncCount = 0;
