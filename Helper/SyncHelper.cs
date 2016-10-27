@@ -78,6 +78,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
 
             int personAliasesCount = personAliases.Count();
             int syncCount = 0;
+            personAliases = personAliases.OrderBy(a => a.Id);
             for (int takenCount = 0;
                  takenCount < personAliasesCount;
                  takenCount = takenCount + SendGridRequest.SENDGRID_ADD_RECEIPIENT_MAX_COUNT)
@@ -182,9 +183,8 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
 
         public static void AddPeopleToList(IQueryable<PersonAlias> people, int listId, string apiKey)
         {
-            var emails = people.Select(a => a.Person.Email);
+            var emails = people.Select(a => a.Person.Email).OrderBy( a => a.Length);
             int emailCount = emails.Count();
-            int syncCount = 0;
             for (int takenCount = 0;
                  takenCount < emailCount;
                  takenCount = takenCount + SendGridRequest.SENDGRID_ADD_RECEIPIENT_MAX_COUNT)

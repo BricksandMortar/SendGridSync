@@ -13,5 +13,6 @@ namespace com.bricksandmortarstudio.SendGridSync.Constants
         public const string CUSTOM_FIELDS_RESOURCE = "contactdb/custom_fields";
         public const int SENDGRID_ADD_RECEIPIENT_MAX_COUNT = 500;
         public const string LISTS_RESOURCE = "/contactdb/lists";
+        public const string LISTS_PERSON_RESOUCE = "recipients";
     }
 }

@@ -55,27 +55,33 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             var familyGuid = Rock.SystemGuid.GroupType.GROUPTYPE_FAMILY.AsGuid();
             var rockContext = new RockContext();
 
-            var people = new GroupService(rockContext)
+            var personAliasService = new PersonAliasService( rockContext );
+
+            //TODO Fix this
+            var groups = new GroupService(rockContext)
                 .Queryable("GroupType,GroupType.Groups")
-                .Where(gt => gt.GroupType.Guid == familyGuid)
-                .SelectMany(gt => gt.Groups)
-                .Where(g => g.Campus.Guid == campus.Value)
+                .Where(gt => gt.GroupType.Guid == familyGuid);
+
+            var campusGroups= groups
+                .Where(g => g.Campus.Guid == campus.Value);
+
+            var people = campusGroups
                 .SelectMany(g => g.Members)
-                .Select(gm => gm.Person).ToList();
+                .Select(gm => gm.Person)
+                .Where(p => p.Email != null && p.Email != string.Empty);
 
-            var campusAttendees = people.Select(p => p.PrimaryAlias.Id);
+            var campusAttendeesPersonAliasIds = people
+                .Join( personAliasService.Queryable(), p => p.Aliases.FirstOrDefault().Id, pa => pa.Id, ( gm, pa ) => new { PersonAliasId = pa.Id } )
+                .Select( x => x.PersonAliasId );
 
-            var previouslySyncedPersonAliasIds = new PersonAliasHistoryService(rockContext)
-                .Queryable()
-                .Where(a => campusAttendees.Contains(a.PersonAlias.Id))
-                .AsNoTracking()
-                .Select(a => a.PersonAliasId);
+            var previouslySyncedPersonAliasIds =
+                new PersonAliasHistoryService(rockContext).GetPreviouslySyncedPersonAliasIds(
+                    campusAttendeesPersonAliasIds);
 
-            var notYetSynced = people
-                .Where(g => (g.Aliases.All(a => previouslySyncedPersonAliasIds.Any(b => a.Id != b) )))
-                .ToList()
-                .Select(p => p.PrimaryAlias);
-            
+            var notYetSyncedIds = campusAttendeesPersonAliasIds.Except( previouslySyncedPersonAliasIds );
+
+            var notYetSynced = personAliasService.Queryable().Where( a => notYetSyncedIds.Contains( a.Id ) );
+
             SyncHelper.SyncContacts( notYetSynced, apiKey );
 
             SyncHelper.AddPeopleToList(notYetSynced, listId.Value, apiKey);

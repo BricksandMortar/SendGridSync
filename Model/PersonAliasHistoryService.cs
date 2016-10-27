@@ -1,7 +1,9 @@
 using System;
+using System.Data.Entity;
 using System.Linq;
-
+using System.Linq.Expressions;
 using Rock.Data;
+using Rock.Model;
 
 namespace com.bricksandmortarstudio.SendGridSync.Model
 {
@@ -18,6 +20,22 @@ namespace com.bricksandmortarstudio.SendGridSync.Model
         public PersonAliasHistory GetByPersonAliasId( int personAliasId )
         {
             return Queryable().FirstOrDefault( a => a.PersonAliasId == personAliasId );
+        }
+
+        public IQueryable<int> GetPreviouslySyncedPersonAliasIds(IQueryable<int> personAliasIds)
+        {
+            return Queryable()
+                .Where( a => personAliasIds.Contains( a.PersonAliasId ) )
+                .AsNoTracking()
+                .Select( a => a.PersonAliasId );
+        }
+    }
+
+    public static class Extensions
+    {
+        public static Expression<Func<Person, PersonAlias>> GetPersonAlias()
+        {
+            return person => person.Aliases.FirstOrDefault();
         }
     }
 }

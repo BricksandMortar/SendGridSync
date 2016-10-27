@@ -54,12 +54,13 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
 
             var rockContext = new RockContext();
-            var groupMembers = new GroupMemberService(rockContext)
-                .Queryable("Group,Person")
-                .Where(a => a.Group.Guid == group)
-                .Select(p => p.Person);
 
-            var groupMemberAliasIds = groupMembers.Select(a => a.PrimaryAliasId);
+            var personAliasService = new PersonAliasService( rockContext );
+            var groupMemberAliasIds = new GroupMemberService( rockContext )
+                .Queryable()
+                .Where( a => a.Group.Guid == group.Value )
+                .Join( personAliasService.Queryable(), gm => gm.Person.Aliases.FirstOrDefault().Id, pa => pa.Id, ( gm, pa ) => new { PersonAliasId = pa.Id } )
+                .Select( x => x.PersonAliasId );
 
             var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext )
                 .Queryable()
@@ -67,9 +68,9 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 .AsNoTracking()
                 .Select( a => a.PersonAliasId );
 
-            var notYetSynced = groupMembers
-                .Where(g => g.PrimaryAliasId.HasValue && !previouslySyncedPersonAliasIds.Contains(g.PrimaryAliasId.Value))
-                .Select(p => p.PrimaryAlias);
+            var notYetSyncedIds = groupMemberAliasIds.Except(previouslySyncedPersonAliasIds);
+
+            var notYetSynced = personAliasService.Queryable().Where(a => notYetSyncedIds.Contains(a.Id));
             
             SyncHelper.SyncContacts( notYetSynced, apiKey );
           

@@ -132,6 +132,23 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             throw new Exception( "Unable to create new list" );
         }
 
+        private static IRestResponse CreatePersonListRequest( string apiKey, int listId, Method method, string body = "" )
+        {
+            var restClient = new RestClient( SendGridRequest.SENDGRID_BASE_URL );
+            var request = new RestRequest( method )
+            {
+                RequestFormat = DataFormat.Json,
+                Resource = SendGridRequest.LISTS_RESOURCE + "/" + listId + "/" + SendGridRequest.LISTS_PERSON_RESOUCE
+            };
+            request.AddHeader( "Authorization", "Bearer " + apiKey );
+            if ( !string.IsNullOrWhiteSpace( body ) )
+            {
+                request.AddParameter( "application/json", body, ParameterType.RequestBody );
+            }
+            var response = restClient.Execute( request );
+            return response;
+        }
+
         internal static void AddPeopleToList(IQueryable<string> emailAddresses, int listId, string apiKey)
         {
             var ids = emailAddresses.Select(GetRecipientId).ToList();
@@ -140,13 +157,14 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
                 {
                     NullValueHandling = NullValueHandling.Ignore,
                 } );
-
-            var response = CreateListRequest( apiKey, Method.GET, body );
-            if (response.StatusCode != HttpStatusCode.OK)
+            
+            var response = CreatePersonListRequest( apiKey,listId, Method.POST, body );
+            if (response.StatusCode != HttpStatusCode.Created)
             {
                 throw new Exception( "Unable to add people to list" );
             }
         }
+
 
         private static string GetRecipientId( string email )
         {
