@@ -56,16 +56,11 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             var rockContext = new RockContext();
 
             var personAliasService = new PersonAliasService( rockContext );
-
-            //TODO Fix this
-            var groups = new GroupService(rockContext)
-                .Queryable("GroupType,GroupType.Groups")
-                .Where(gt => gt.GroupType.Guid == familyGuid);
-
-            var campusGroups= groups
-                .Where(g => g.Campus.Guid == campus.Value);
-
-            var people = campusGroups
+            var groupTypeService = new GroupTypeService(rockContext);
+            var people = new GroupService(rockContext)
+                .Queryable("GroupType,GroupType.Groups,Members")
+                .AsNoTracking()
+                .Where(g => g.GroupType.Guid == familyGuid && g.Campus.Guid == campus.Value )
                 .SelectMany(g => g.Members)
                 .Select(gm => gm.Person)
                 .Where(p => p.Email != null && p.Email != string.Empty);
