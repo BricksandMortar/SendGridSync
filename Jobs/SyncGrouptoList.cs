@@ -58,6 +58,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             var personAliasService = new PersonAliasService( rockContext );
             var groupMemberAliasIds = new GroupMemberService( rockContext )
                 .Queryable()
+                .AsNoTracking()
                 .Where( a => a.Group.Guid == group.Value )
                 .Join( personAliasService.Queryable(), gm => gm.Person.Aliases.FirstOrDefault().Id, pa => pa.Id, ( gm, pa ) => new { PersonAliasId = pa.Id } )
                 .Select( x => x.PersonAliasId );
