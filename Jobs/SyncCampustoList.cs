@@ -53,10 +53,9 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             }
 
             var familyGuid = Rock.SystemGuid.GroupType.GROUPTYPE_FAMILY.AsGuid();
-            var rockContext = new RockContext();
 
+            var rockContext = new RockContext();
             var personAliasService = new PersonAliasService( rockContext );
-            var groupTypeService = new GroupTypeService(rockContext);
             var people = new GroupService(rockContext)
                 .Queryable()
                 .AsNoTracking()
@@ -73,9 +72,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 new PersonAliasHistoryService(rockContext).GetPreviouslySyncedPersonAliasIds(
                     campusAttendeesPersonAliasIds);
 
-            var notYetSyncedIds = campusAttendeesPersonAliasIds.Except( previouslySyncedPersonAliasIds );
-
-            var notYetSynced = personAliasService.Queryable().Where( a => notYetSyncedIds.Contains( a.Id ) );
+            var notYetSynced = SyncHelper.FindNotYetSyncedPersonAlises( rockContext, campusAttendeesPersonAliasIds, previouslySyncedPersonAliasIds );
 
             SyncHelper.SyncContacts( notYetSynced, apiKey );
 

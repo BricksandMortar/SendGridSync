@@ -25,8 +25,8 @@ namespace com.bricksandmortarstudio.SendGridSync.Model
         public IQueryable<int> GetPreviouslySyncedPersonAliasIds(IQueryable<int> personAliasIds)
         {
             return Queryable()
-                .Where( a => personAliasIds.Contains( a.PersonAliasId ) )
                 .AsNoTracking()
+                .Where( a => personAliasIds.Contains( a.PersonAliasId ) )
                 .Select( a => a.PersonAliasId );
         }
     }

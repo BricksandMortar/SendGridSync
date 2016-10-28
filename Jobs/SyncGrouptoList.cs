@@ -69,9 +69,8 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 .AsNoTracking()
                 .Select( a => a.PersonAliasId );
 
-            var notYetSyncedIds = groupMemberAliasIds.Except(previouslySyncedPersonAliasIds);
-
-            var notYetSynced = personAliasService.Queryable().Where(a => notYetSyncedIds.Contains(a.Id));
+            var notYetSynced = SyncHelper.FindNotYetSyncedPersonAlises(rockContext, groupMemberAliasIds,
+                previouslySyncedPersonAliasIds);
             
             SyncHelper.SyncContacts( notYetSynced, apiKey );
           

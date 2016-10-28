@@ -43,20 +43,35 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             return true;
         }
 
-        public static IQueryable<PersonAlias> FindNotYetSyncedPersonAlises(RockContext rockContext,
+        public static IQueryable<PersonAlias> FindNotYetSyncedPersonAlises(RockContext rockContext, IQueryable<int> populationIds,
             IQueryable<int> syncedPersonAliasIds)
         {
             var personAliasService = new PersonAliasService(rockContext);
 
+            var notSyncedPersonAliadsIds = populationIds.Except(syncedPersonAliasIds);
             var personAlises = personAliasService
-                .Queryable("Person")
+                .Queryable()
                 .AsNoTracking()
                 .Where(
                     a =>
-                        !syncedPersonAliasIds.Any(
-                            s => s == a.Id) &&
+                        notSyncedPersonAliadsIds.Contains(a.Id) &&
                         a.Person.Email != null && a.Person.Email != ""
                         && a.Person.EmailPreference == EmailPreference.EmailAllowed);
+            return personAlises;
+        }
+
+        public static IQueryable<PersonAlias> FindNotYetSyncedPersonAlises( RockContext rockContext, IQueryable<int> syncedPersonAliasIds )
+        {
+            var personAliasService = new PersonAliasService( rockContext );
+            
+            var personAlises = personAliasService
+                .Queryable()
+                .AsNoTracking()
+                .Where(
+                    a =>
+                        !syncedPersonAliasIds.Contains( a.Id ) &&
+                        a.Person.Email != null && a.Person.Email != ""
+                        && a.Person.EmailPreference == EmailPreference.EmailAllowed );
             return personAlises;
         }
 
