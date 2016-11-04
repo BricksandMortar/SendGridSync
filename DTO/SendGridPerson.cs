@@ -1,7 +1,9 @@
-﻿using Newtonsoft.Json;
+﻿using System.Diagnostics.CodeAnalysis;
+using Newtonsoft.Json;
 
 namespace com.bricksandmortarstudio.SendGridSync.DTO
 {
+    [SuppressMessage( "ReSharper", "InconsistentNaming" )]
     internal class SendGridPerson
     {
         public SendGridPerson( string email, int aliasId, string firstName, string lastName, string title )
