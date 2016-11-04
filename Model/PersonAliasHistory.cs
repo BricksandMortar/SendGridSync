@@ -22,11 +22,12 @@ namespace com.bricksandmortarstudio.SendGridSync.Model
 
         #region Virtual
         [DataMember]
+        [ForeignKey( "PersonAliasId" )]
         public virtual PersonAlias PersonAlias { get; set; }
         #endregion
     }
 
-    public partial class PersonAliasHistoryConfiguration : EntityTypeConfiguration<PersonAliasHistory>
+    public class PersonAliasHistoryConfiguration : EntityTypeConfiguration<PersonAliasHistory>
     {
         public PersonAliasHistoryConfiguration()
         {

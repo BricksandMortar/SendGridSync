@@ -1,15 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
-using System.Net;
-using com.bricksandmortarstudio.SendGridSync.Constants;
-using com.bricksandmortarstudio.SendGridSync.DTO;
 using com.bricksandmortarstudio.SendGridSync.Model;
 using com.bricksandmortarstudio.SendGridSync.Helper;
-using Newtonsoft.Json;
 using Quartz;
-using RestSharp;
 using Rock;
 using Rock.Attribute;
 using Rock.Data;
@@ -54,14 +48,14 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
 
             var rockContext = new RockContext();
-
-            var personAliasService = new PersonAliasService( rockContext );
-            var groupMemberAliasIds = new GroupMemberService( rockContext )
+            
+            var groupMemberAliases = new GroupMemberService(rockContext)
                 .Queryable()
                 .AsNoTracking()
-                .Where( a => a.Group.Guid == group.Value )
-                .Join( personAliasService.Queryable(), gm => gm.Person.Aliases.FirstOrDefault().Id, pa => pa.Id, ( gm, pa ) => new { PersonAliasId = pa.Id } )
-                .Select( x => x.PersonAliasId );
+                .Where(a => a.Group.Guid == group.Value && a.Person.Email != null && a.Person.Email != string.Empty && a.Person.EmailPreference == EmailPreference.EmailAllowed)
+                .Select(a => a.Person.Aliases.FirstOrDefault());
+
+            var groupMemberAliasIds = groupMemberAliases.Select(a => a.Id);
 
             var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext )
                 .Queryable()
@@ -69,12 +63,11 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 .AsNoTracking()
                 .Select( a => a.PersonAliasId );
 
-            var notYetSynced = SyncHelper.FindNotYetSyncedPersonAlises(rockContext, groupMemberAliasIds,
-                previouslySyncedPersonAliasIds);
+            var notYetSynced = SyncHelper.FindNotYetSyncedPersonAlises(rockContext, groupMemberAliasIds, previouslySyncedPersonAliasIds);
             
             SyncHelper.SyncContacts( notYetSynced, apiKey );
           
-            SyncHelper.AddPeopleToList(notYetSynced, listId.Value, apiKey);
+            SyncHelper.AddPeopleToList( groupMemberAliases, listId.Value, apiKey);
 
             context.Result = "Group synced successfully";
         }

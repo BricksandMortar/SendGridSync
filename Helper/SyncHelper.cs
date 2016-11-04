@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
 using System.Net;
-using System.Text;
+using System.Threading;
 using com.bricksandmortarstudio.SendGridSync.Constants;
 using com.bricksandmortarstudio.SendGridSync.DTO;
 using com.bricksandmortarstudio.SendGridSync.Model;
+using com.bricksandmortarstudio.SendGridSync.Util;
 using Newtonsoft.Json;
 using RestSharp;
 using Rock;
@@ -46,18 +47,11 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
         public static IQueryable<PersonAlias> FindNotYetSyncedPersonAlises(RockContext rockContext, IQueryable<int> populationIds,
             IQueryable<int> syncedPersonAliasIds)
         {
-            var personAliasService = new PersonAliasService(rockContext);
-
-            var notSyncedPersonAliadsIds = populationIds.Except(syncedPersonAliasIds);
-            var personAlises = personAliasService
-                .Queryable()
-                .AsNoTracking()
-                .Where(
-                    a =>
-                        notSyncedPersonAliadsIds.Contains(a.Id) &&
-                        a.Person.Email != null && a.Person.Email != ""
+            var notSyncedPersonAliadsIds = populationIds.Except(syncedPersonAliasIds).ToList();
+            var personAliases = new PersonAliasService(rockContext).GetByIds( notSyncedPersonAliadsIds );
+            return personAliases.Where(a => notSyncedPersonAliadsIds.Contains(a.Id) &&
+                        a.Person.Email != null && a.Person.Email != string.Empty
                         && a.Person.EmailPreference == EmailPreference.EmailAllowed);
-            return personAlises;
         }
 
         public static IQueryable<PersonAlias> FindNotYetSyncedPersonAlises( RockContext rockContext, IQueryable<int> syncedPersonAliasIds )
@@ -90,22 +84,16 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
         public static int SyncContacts(IQueryable<PersonAlias> personAliases, string apiKey, bool resyncing = false)
         {
             var restClient = new RestClient(SendGridRequest.SENDGRID_BASE_URL);
-
-            int personAliasesCount = personAliases.Count();
+            var ordered = personAliases.OrderBy(f => f.Id);
             int syncCount = 0;
-            personAliases = personAliases.OrderBy(a => a.Id);
-            for (int takenCount = 0;
-                 takenCount < personAliasesCount;
-                 takenCount = takenCount + SendGridRequest.SENDGRID_ADD_RECEIPIENT_MAX_COUNT)
+            foreach (var chunk in ordered.QueryChunksOfSize( SendGridRequest.SENDGRID_ADD_RECEIPIENT_MAX_COUNT ) )
             {
                 var request =
-                    ApiHelper.BuildContactsRequest(
-                        personAliases.Skip(takenCount).Take(SendGridRequest.SENDGRID_ADD_RECEIPIENT_MAX_COUNT),
-                        apiKey);
+                    ApiHelper.BuildContactsRequest(chunk,apiKey);
                 var response = restClient.Execute(request);
                 if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created)
                 {
-                    var personAliasesEnumerated = ExtractUpdatedAliasIds(personAliases, response);
+                    var personAliasesEnumerated = ExtractUpdatedAliasIds( chunk, response);
                     if (!resyncing)
                     {
                         syncCount += AddToSendGridAliasHistory(personAliasesEnumerated);
@@ -120,11 +108,12 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
                     throw new Exception("One or more errors occurred syncing individuals." + Environment.NewLine +
                                         response.Content);
                 }
+                Thread.Sleep(500);
             }
             return syncCount;
         }
 
-        private static IEnumerable<PersonAlias> ExtractUpdatedAliasIds(IQueryable<PersonAlias> personAliases,
+        private static IEnumerable<PersonAlias> ExtractUpdatedAliasIds(IEnumerable<PersonAlias> personAliases,
             IRestResponse response)
         {
             var personAlisesEnumerated = personAliases.ToList();
@@ -196,7 +185,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
 
 
 
-        public static void AddPeopleToList(IQueryable<PersonAlias> people, int listId, string apiKey)
+        public static void AddPeopleToList(IEnumerable<PersonAlias> people, int listId, string apiKey)
         {
             var emails = people.Select(a => a.Person.Email).OrderBy( a => a.Length);
             int emailCount = emails.Count();

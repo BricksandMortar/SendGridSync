@@ -1,19 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data.Entity;
+﻿using System.Data.Entity;
 using System.Linq;
-using System.Net;
-using com.bricksandmortarstudio.SendGridSync.Constants;
-using com.bricksandmortarstudio.SendGridSync.DTO;
 using com.bricksandmortarstudio.SendGridSync.Model;
 using com.bricksandmortarstudio.SendGridSync.Helper;
-using Newtonsoft.Json;
 using Quartz;
-using RestSharp;
 using Rock;
 using Rock.Attribute;
 using Rock.Data;
-using Rock.Model;
 
 namespace com.bricksandmortarstudio.SendGridSync.Jobs
 {
@@ -43,7 +35,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
             var rockContext = new RockContext();
             var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext ).Queryable().AsNoTracking().Select( a => a.PersonAliasId );
-            var notYetSynced = SyncHelper.FindNotYetSyncedPersonAlises( rockContext, previouslySyncedPersonAliasIds );
+            var notYetSynced = SyncHelper.FindNotYetSyncedPersonAlises( new RockContext(), previouslySyncedPersonAliasIds );
 
             var historicSyncMarker = RockDateTime.Now.AddDays(-dayInterval);
             var needReSyncPersonAliases = SyncHelper.FindResyncCandidates( rockContext, historicSyncMarker );

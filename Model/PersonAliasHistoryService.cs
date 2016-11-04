@@ -2,7 +2,6 @@ using System;
 using System.Data.Entity;
 using System.Linq;
 using System.Linq.Expressions;
-using Rock.Data;
 using Rock.Model;
 
 namespace com.bricksandmortarstudio.SendGridSync.Model
@@ -10,7 +9,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Model
     /// <summary>
     /// PersonAliasHistory Service class
     /// </summary>
-    public partial class PersonAliasHistoryService : Service<PersonAliasHistory>
+    public partial class PersonAliasHistoryService
     {
         /// <summary>
         /// Gets the PersonAliasHistory record for a given PersonAlias

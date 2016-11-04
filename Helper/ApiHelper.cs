@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -26,7 +25,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             };
             request.AddHeader( "Authorization", "Bearer " + apiKey );
 
-            request.AddBody( new { name = name, type = type } );
+            request.AddBody( new {name, type } );
             var response = restClient.Execute( request );
             if ( response.StatusCode == HttpStatusCode.Created )
             {
@@ -151,7 +150,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             return response;
         }
 
-        internal static void AddPeopleToList(IQueryable<string> emailAddresses, int listId, string apiKey)
+        internal static void AddPeopleToList(IEnumerable<string> emailAddresses, int listId, string apiKey)
         {
             var ids = emailAddresses.Select(GetRecipientId).ToList();
             string body = JsonConvert.SerializeObject( ids,
