@@ -14,6 +14,8 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
 {
     public class ApiHelper
     {
+        static readonly char[] Padding = { '=' };
+
         internal static bool CreateCustomField( string name, string type, string apiKey )
         {
             var restClient = new RestClient( SendGridRequest.SENDGRID_BASE_URL );
@@ -161,14 +163,14 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             var response = CreatePersonListRequest( apiKey,listId, Method.POST, body );
             if (response.StatusCode != HttpStatusCode.Created)
             {
-                throw new Exception( "Unable to add people to list" );
+                throw new Exception( "Unable to add people to list: " + response.Content);
             }
         }
 
 
         private static string GetRecipientId( string email )
         {
-            return Convert.ToBase64String( Encoding.ASCII.GetBytes( email ) );
+            return Convert.ToBase64String( Encoding.ASCII.GetBytes(email.ToLower()) ).TrimEnd( Padding ).Replace( '+', '-' ).Replace( '/', '_' );
         }
     }
 }
