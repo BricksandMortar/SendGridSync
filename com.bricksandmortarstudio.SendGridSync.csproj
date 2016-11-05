@@ -85,6 +85,7 @@
     <Compile Include="Jobs\SyncCampustoList.cs" />
     <Compile Include="Jobs\SyncGrouptoList.cs" />
     <Compile Include="Jobs\UpdateContacts.cs" />
+    <Compile Include="Migrations\003_AddIndex.cs" />
     <Compile Include="Migrations\002_AddForeignKey.cs" />
     <Compile Include="Migrations\001_AddTable.cs" />
     <Compile Include="Model\CodeGenerated\PersonAliasHistoryService.cs" />
