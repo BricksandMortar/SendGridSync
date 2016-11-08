@@ -89,7 +89,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             foreach (var chunk in ordered.QueryChunksOfSize( SendGridRequest.SENDGRID_ADD_RECEIPIENT_MAX_COUNT ) )
             {
                 var request =
-                    ApiHelper.BuildContactsRequest(chunk,apiKey);
+                    ApiHelper.AddContactsRequestBuilder(chunk,apiKey);
                 var response = restClient.Execute(request);
                 if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created)
                 {
@@ -200,5 +200,21 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             }
 
         }
+
+        public static void EnsureValidPeopleOnly(IEnumerable<int> validPersonAlisIds, int listId, string apiKey)
+        {
+            var listPersonAliasIds = ApiHelper.GetListPersonAliasIds(apiKey, listId);
+            var invalidPersonAliasIds = listPersonAliasIds.Except(validPersonAlisIds);
+            var invalidPersonAliasIdsListed = invalidPersonAliasIds as IList<int> ?? invalidPersonAliasIds.ToList();
+            if (!invalidPersonAliasIdsListed.Any())
+            {
+                return;
+            }
+
+            var emails = new PersonAliasService( new RockContext() ).GetByIds( invalidPersonAliasIdsListed.ToList() ).Where(pa => pa.Person.Email != null).Select(pa => pa.Person.Email);
+            ApiHelper.DeleteRecipients(apiKey, emails);
+        }
+
+
     }
 }

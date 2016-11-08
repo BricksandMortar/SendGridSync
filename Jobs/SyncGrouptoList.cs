@@ -64,9 +64,12 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 .Select( a => a.PersonAliasId );
 
             var notYetSynced = SyncHelper.FindNotYetSyncedPersonAlises(rockContext, groupMemberAliasIds, previouslySyncedPersonAliasIds);
-            
-            SyncHelper.SyncContacts( notYetSynced, apiKey );
-          
+
+            if (notYetSynced.Any())
+            {
+                SyncHelper.SyncContacts( notYetSynced, apiKey );
+            }
+
             SyncHelper.AddPeopleToList( groupMemberAliases, listId.Value, apiKey);
 
             context.Result = "Group synced successfully";

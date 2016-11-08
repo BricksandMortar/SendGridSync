@@ -62,7 +62,10 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
             var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext ).GetPreviouslySyncedPersonAliasIds(campusAttendeesPersonAliasIds );
             var notYetSynced = SyncHelper.FindNotYetSyncedPersonAlises( rockContext, campusAttendeesPersonAliasIds, previouslySyncedPersonAliasIds );
-            SyncHelper.SyncContacts( notYetSynced, apiKey );
+            if (notYetSynced.Any())
+            {
+                SyncHelper.SyncContacts( notYetSynced, apiKey );
+            }
             SyncHelper.AddPeopleToList( campusAttendeesPersonAlias, listId.Value, apiKey );
 
             context.Result = "Campus synced successfully";

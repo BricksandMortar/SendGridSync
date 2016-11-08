@@ -46,6 +46,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             {
                reSyncCount = SyncHelper.SyncContacts( needReSyncPersonAliases, apiKey, true );
             }
+
             context.Result = string.Format( "{0} people synced for the first time, {1} people updated", synCount, reSyncCount );
         }
     }
