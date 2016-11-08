@@ -46,13 +46,12 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 throw new Exception( "Unable to identify list identifier" );
             }
 
-
             var rockContext = new RockContext();
             
             var groupMemberAliases = new GroupMemberService(rockContext)
                 .Queryable()
                 .AsNoTracking()
-                .Where(a => a.Group.Guid == group.Value && a.Person.Email != null && a.Person.Email != string.Empty && a.Person.EmailPreference == EmailPreference.EmailAllowed)
+                .Where(a => a.Group.Guid == group.Value && a.Person.IsEmailActive && a.Person.Email != null && a.Person.Email != string.Empty && a.Person.EmailPreference == EmailPreference.EmailAllowed)
                 .Select(a => a.Person.Aliases.FirstOrDefault());
 
             var groupMemberAliasIds = groupMemberAliases.Select(a => a.Id);
@@ -71,6 +70,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             }
 
             SyncHelper.AddPeopleToList( groupMemberAliases, listId.Value, apiKey);
+            SyncHelper.EnsureValidPeopleOnly( groupMemberAliasIds, listId.Value, apiKey );
 
             context.Result = "Group synced successfully";
         }

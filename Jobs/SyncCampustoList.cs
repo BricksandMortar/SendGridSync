@@ -56,7 +56,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 .Where( g => g.GroupType.Guid == familyGuid && g.Campus.Guid == campus.Value )
                 .SelectMany( g => g.Members )
                 .Select( gm => gm.Person )
-                .Where( p => p.Email != null && p.Email != string.Empty && p.EmailPreference == EmailPreference.EmailAllowed )
+                .Where( p => p.IsEmailActive && p.Email != null && p.Email != string.Empty && p.EmailPreference == EmailPreference.EmailAllowed )
                 .Select( p => p.Aliases.FirstOrDefault() );
             var campusAttendeesPersonAliasIds = campusAttendeesPersonAlias.Select( a => a.Id );
 
@@ -67,6 +67,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 SyncHelper.SyncContacts( notYetSynced, apiKey );
             }
             SyncHelper.AddPeopleToList( campusAttendeesPersonAlias, listId.Value, apiKey );
+            SyncHelper.EnsureValidPeopleOnly( campusAttendeesPersonAliasIds , listId.Value, apiKey);
 
             context.Result = "Campus synced successfully";
         }

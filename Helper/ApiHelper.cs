@@ -109,9 +109,9 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             throw new Exception( "Unable to obtain existing existing lists from SendGrid" );
         }
 
-        internal static int GetListRecipientCount( string listName, string apiKey )
+        internal static int GetListRecipientCount( int listId, string apiKey )
         {
-            var response = CreateListRequest( apiKey, Method.GET );
+            var response = CreateListRequest( apiKey, Method.GET, string.Empty, listId.ToString() );
             if ( response.StatusCode == HttpStatusCode.OK )
             {
                 var settings = new JsonSerializerSettings
@@ -119,7 +119,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
                     NullValueHandling = NullValueHandling.Ignore,
                     MissingMemberHandling = MissingMemberHandling.Ignore
                 };
-                var list = JsonConvert.DeserializeObject<DTO.List>( response.Content, settings );
+                var list = JsonConvert.DeserializeObject<List>( response.Content, settings );
                 return list.recipient_count;
             }
             throw new Exception( "Unable to obtain existing existing lists from SendGrid" );
@@ -229,7 +229,6 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             {
                 throw new Exception("Could not delete recipients " + response.Content);
             }
-            //TODO
         }
 
         internal static void AddPeopleToList(IEnumerable<string> emailAddresses, int listId, string apiKey)
