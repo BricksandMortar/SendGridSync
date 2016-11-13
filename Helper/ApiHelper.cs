@@ -209,12 +209,19 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
                 {
                     throw new Exception( "Unable to fetch list people " + response.Content );
                 }
-
-                dynamic listPeople = JArray.Parse( response.Content );
+                dynamic payload = JObject.Parse(response.Content);
+                dynamic listPeople = payload.recipients;
                 foreach ( var person in listPeople )
                 {
                     parsedCount++;
-                    personAliasIds.Add( person.person_alias_id );
+                    JArray customFields = person.custom_fields;
+                    JObject personAliasField = customFields.Children<JObject>()
+                              .FirstOrDefault(o => o["name"] != null && o["name"].ToString() == "person_alias_id");
+                    if (personAliasField?["value"] != null)
+                    {
+
+                        personAliasIds.Add( int.Parse( personAliasField["value"].ToString() ) );
+                    }
                 }
                 listCount = listCount - parsedCount;
                 page++;
