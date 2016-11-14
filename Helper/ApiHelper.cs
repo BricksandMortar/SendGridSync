@@ -217,10 +217,15 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
                     JArray customFields = person.custom_fields;
                     JObject personAliasField = customFields.Children<JObject>()
                               .FirstOrDefault(o => o["name"] != null && o["name"].ToString() == "person_alias_id");
-                    if (personAliasField?["value"] != null)
+                    if (personAliasField?["value"] != null && !string.IsNullOrWhiteSpace( personAliasField["value"].ToString() ) )
                     {
-
-                        personAliasIds.Add( int.Parse( personAliasField["value"].ToString() ) );
+                        string personAlisFieldValue = personAliasField["value"].ToString();
+                        int personAliasId;
+                        bool succesfulParse = int.TryParse(personAlisFieldValue, out personAliasId);
+                        if (succesfulParse)
+                        {
+                            personAliasIds.Add( personAliasId );
+                        }
                     }
                 }
                 listCount = listCount - parsedCount;
