@@ -69,8 +69,12 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
                 SyncHelper.SyncContacts( notYetSynced, apiKey );
             }
 
-            SyncHelper.AddPeopleToList( groupMemberAliases, listId.Value, apiKey);
-            SyncHelper.EnsureValidPeopleOnly( groupMemberAliasIds, listId.Value, apiKey );
+            if (groupMemberAliasIds.Any())
+            {
+                SyncHelper.AddPeopleToList( groupMemberAliases, listId.Value, apiKey );
+                SyncHelper.EnsureValidPeopleOnly( groupMemberAliasIds, listId.Value, apiKey );
+            }
+
 
             context.Result = "Group synced successfully";
         }

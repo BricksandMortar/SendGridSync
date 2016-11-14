@@ -66,8 +66,13 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             {
                 SyncHelper.SyncContacts( notYetSynced, apiKey );
             }
-            SyncHelper.AddPeopleToList( campusAttendeesPersonAlias, listId.Value, apiKey );
-            SyncHelper.EnsureValidPeopleOnly( campusAttendeesPersonAliasIds , listId.Value, apiKey);
+
+            if (campusAttendeesPersonAlias.Any())
+            {
+                SyncHelper.AddPeopleToList( campusAttendeesPersonAlias, listId.Value, apiKey );
+                SyncHelper.EnsureValidPeopleOnly( campusAttendeesPersonAliasIds, listId.Value, apiKey );
+            }
+
 
             context.Result = "Campus synced successfully";
         }
