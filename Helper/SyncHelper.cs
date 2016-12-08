@@ -148,9 +148,18 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             foreach ( var personalias in personAliasesEnumerated )
             {
                 var personAliasHistory = personAliasHistoryService.GetByPersonAliasId( personalias.Id );
-                if ( personAliasHistory != null )
+                if (personAliasHistory != null)
                 {
                     personAliasHistory.LastUpdated = now;
+                }
+                else
+                {
+                    personAliasHistory = new PersonAliasHistory
+                    {
+                        PersonAliasId = personalias.Id,
+                        LastUpdated = now
+                    };
+                    personAliasHistoryService.Add( personAliasHistory );
                 }
                 updated++;
             }
@@ -187,7 +196,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
 
         public static void AddPeopleToList( IEnumerable<PersonAlias> people, int listId, string apiKey )
         {
-            var emails = people.Select( a => a.Person.Email ).OrderBy( a => a.Length );
+            var emails = people.Select( a => new KeyValuePair<int, string>(a.Id, a.Person.Email));
             int emailCount = emails.Count();
             for ( int takenCount = 0;
                  takenCount < emailCount;
@@ -201,6 +210,12 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
 
         }
 
+        /// <summary>
+        /// Removes people who have removed their email address
+        /// </summary>
+        /// <param name="validPersonAlisIds"></param>
+        /// <param name="listId"></param>
+        /// <param name="apiKey"></param>
         public static void EnsureValidPeopleOnly( IEnumerable<int> validPersonAlisIds, int listId, string apiKey )
         {
             int listCount = ApiHelper.GetListRecipientCount( listId, apiKey );

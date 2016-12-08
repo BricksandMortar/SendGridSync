@@ -8,6 +8,7 @@ using com.bricksandmortarstudio.SendGridSync.DTO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RestSharp;
+using Rock.Data;
 using Rock.Model;
 
 namespace com.bricksandmortarstudio.SendGridSync.Helper
@@ -26,7 +27,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             };
             request.AddHeader( "Authorization", "Bearer " + apiKey );
 
-            request.AddBody( new {name, type } );
+            request.AddBody( new { name, type } );
             var response = restClient.Execute( request );
             if ( response.StatusCode == HttpStatusCode.Created )
             {
@@ -74,10 +75,10 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             return request;
         }
 
-        internal static IRestResponse NewRemoveContactsRequest(IEnumerable<string> emails, string apiKey)
+        internal static IRestResponse NewRemoveContactsRequest( IEnumerable<string> emails, string apiKey )
         {
             var restClient = new RestClient( SendGridRequest.SENDGRID_BASE_URL );
-            var recipientIds = GetRecipientIds(emails);
+            var recipientIds = GetRecipientIds( emails );
             var request = new RestRequest( Method.DELETE )
             {
                 RequestFormat = DataFormat.Json,
@@ -89,7 +90,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
                 {
                     NullValueHandling = NullValueHandling.Ignore,
                 } ), ParameterType.RequestBody );
-            return restClient.Execute(request);
+            return restClient.Execute( request );
         }
 
         internal static int? DoesListExist( string listName, string apiKey )
@@ -131,7 +132,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             var request = new RestRequest( method )
             {
                 RequestFormat = DataFormat.Json,
-                Resource = SendGridRequest.LISTS_RESOURCE + ( !string.IsNullOrWhiteSpace(additionalResource) ? "/" + additionalResource : "")
+                Resource = SendGridRequest.LISTS_RESOURCE + ( !string.IsNullOrWhiteSpace( additionalResource ) ? "/" + additionalResource : "" )
             };
             request.AddHeader( "Authorization", "Bearer " + apiKey );
             if ( !string.IsNullOrWhiteSpace( body ) )
@@ -168,7 +169,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             throw new Exception( "Unable to create new list" );
         }
 
-        private static IRestResponse CreatePersonListRequest( string apiKey, int listId, Method method, string body = "", Dictionary<string, string> parameters = null  )
+        private static IRestResponse CreatePersonListRequest( string apiKey, int listId, Method method, string body = "", Dictionary<string, string> parameters = null )
         {
             var restClient = new RestClient( SendGridRequest.SENDGRID_BASE_URL );
             var request = new RestRequest( method )
@@ -181,23 +182,22 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
             {
                 request.AddParameter( "application/json", body, ParameterType.RequestBody );
             }
-            if (parameters != null)
+            if ( parameters != null )
             {
-                foreach (var parameter in parameters)
+                foreach ( var parameter in parameters )
                 {
-                    request.AddParameter(parameter.Key, parameter.Value);
+                    request.AddParameter( parameter.Key, parameter.Value );
                 }
             }
             var response = restClient.Execute( request );
             return response;
         }
 
-        internal static IEnumerable<int> GetListPersonAliasIds(string apiKey, int listId, int listCount)
+        internal static IEnumerable<int> GetListPersonAliasIds( string apiKey, int listId, int listCount )
         {
-            int parsedCount = 0;
             var personAliasIds = new List<int>();
             int page = 1;
-            while (listCount > 0)
+            for ( ; listCount > 0; listCount -= 1000 )
             {
                 var parameters = new Dictionary<string, string>
                 {
@@ -209,64 +209,65 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
                 {
                     throw new Exception( "Unable to fetch list people " + response.Content );
                 }
-                dynamic payload = JObject.Parse(response.Content);
+                dynamic payload = JObject.Parse( response.Content );
                 dynamic listPeople = payload.recipients;
                 foreach ( var person in listPeople )
                 {
-                    parsedCount++;
                     JArray customFields = person.custom_fields;
                     JObject personAliasField = customFields.Children<JObject>()
-                              .FirstOrDefault(o => o["name"] != null && o["name"].ToString() == "person_alias_id");
-                    if (personAliasField?["value"] != null && !string.IsNullOrWhiteSpace( personAliasField["value"].ToString() ) )
+                              .FirstOrDefault( o => o["name"] != null && o["name"].ToString() == "person_alias_id" );
+                    if ( personAliasField?["value"] != null && !string.IsNullOrWhiteSpace( personAliasField["value"].ToString() ) )
                     {
                         string personAlisFieldValue = personAliasField["value"].ToString();
                         int personAliasId;
-                        bool succesfulParse = int.TryParse(personAlisFieldValue, out personAliasId);
-                        if (succesfulParse)
+                        bool succesfulParse = int.TryParse( personAlisFieldValue, out personAliasId );
+                        if ( succesfulParse )
                         {
                             personAliasIds.Add( personAliasId );
                         }
                     }
                 }
-                listCount = listCount - parsedCount;
+                listCount = listCount - 1000;
                 page++;
             }
             return personAliasIds;
         }
 
-        internal static void DeleteRecipients(string apiKey, IEnumerable<string> recipientIds)
+        internal static void DeleteRecipients( string apiKey, IEnumerable<string> recipientIds )
         {
-            var response = NewRemoveContactsRequest(recipientIds, apiKey);
-            if (response.StatusCode != HttpStatusCode.NoContent)
+            var response = NewRemoveContactsRequest( recipientIds, apiKey );
+            if ( response.StatusCode != HttpStatusCode.NoContent )
             {
-                throw new Exception("Could not delete recipients " + response.Content);
+                throw new Exception( "Could not delete recipients " + response.Content );
             }
         }
 
-        internal static void AddPeopleToList(IEnumerable<string> emailAddresses, int listId, string apiKey)
+        internal static void AddPeopleToList( IEnumerable<KeyValuePair<int, string>> emailAddresses, int listId, string apiKey )
         {
-            var ids = emailAddresses.Select(GetRecipientId).ToList();
-            string body = JsonConvert.SerializeObject( ids,
+            var keyValuePairs = emailAddresses as IList<KeyValuePair<int, string>> ?? emailAddresses.ToList();
+            var ids = keyValuePairs.Select( kv => kv.Key );
+            var recipientIds = keyValuePairs.Select( kv => GetRecipientId( kv.Value ) ).ToList();
+            string body = JsonConvert.SerializeObject( recipientIds,
                 new JsonSerializerSettings
                 {
                     NullValueHandling = NullValueHandling.Ignore,
                 } );
-            
-            var response = CreatePersonListRequest( apiKey,listId, Method.POST, body );
-            if (response.StatusCode != HttpStatusCode.Created)
+
+            var response = CreatePersonListRequest( apiKey, listId, Method.POST, body );
+            if ( response.StatusCode != HttpStatusCode.Created )
             {
-                throw new Exception( "Unable to add people to list: " + response.Content);
+                SyncHelper.SyncContacts( new PersonAliasService( new RockContext() ).GetByIds( ids.ToList() ), apiKey, true );
             }
         }
 
         private static string GetRecipientId( string email )
         {
-            return Convert.ToBase64String( Encoding.ASCII.GetBytes(email.ToLower()) ).TrimEnd( Padding ).Replace( '+', '-' ).Replace( '/', '_' );
+            return Convert.ToBase64String( Encoding.ASCII.GetBytes( email.ToLower() ) ).TrimEnd( Padding ).Replace( '+', '-' ).Replace( '/', '_' );
         }
 
-        private static IEnumerable<string> GetRecipientIds(IEnumerable<string> emailList)
+        private static IEnumerable<string> GetRecipientIds( IEnumerable<string> emailList )
         {
-            return emailList.Select(GetRecipientId).ToList();
+            return emailList.Select( GetRecipientId ).ToList();
         }
     }
 }
