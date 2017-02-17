@@ -47,7 +47,8 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             }
 
             var rockContext = new RockContext();
-            
+            rockContext.Database.CommandTimeout = 360;
+
             var groupMemberAliases = new GroupMemberService(rockContext)
                 .Queryable()
                 .AsNoTracking()
@@ -56,11 +57,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
             var groupMemberAliasIds = groupMemberAliases.Select(a => a.Id);
 
-            var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext )
-                .Queryable()
-                .Where(a => groupMemberAliasIds.Contains(a.PersonAliasId) )
-                .AsNoTracking()
-                .Select( a => a.PersonAliasId );
+            var previouslySyncedPersonAliasIds = new PersonAliasHistoryService( rockContext ).GetPreviouslySyncedPersonAliasIds( groupMemberAliasIds );
 
             var notYetSynced = SyncHelper.FindNotYetSyncedPersonAlises(rockContext, groupMemberAliasIds, previouslySyncedPersonAliasIds);
 
@@ -71,8 +68,8 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
             if (groupMemberAliasIds.Any())
             {
-                SyncHelper.AddPeopleToList( groupMemberAliases, listId.Value, apiKey );
                 SyncHelper.EnsureValidPeopleOnly( groupMemberAliasIds, listId.Value, apiKey );
+                SyncHelper.AddPeopleToList( groupMemberAliases, listId.Value, apiKey );
             }
 
 

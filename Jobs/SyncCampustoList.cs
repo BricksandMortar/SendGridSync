@@ -69,8 +69,8 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
             if (campusAttendeesPersonAlias.Any())
             {
-                SyncHelper.AddPeopleToList( campusAttendeesPersonAlias, listId.Value, apiKey );
                 SyncHelper.EnsureValidPeopleOnly( campusAttendeesPersonAliasIds, listId.Value, apiKey );
+                SyncHelper.AddPeopleToList( campusAttendeesPersonAlias, listId.Value, apiKey );
             }
 
 

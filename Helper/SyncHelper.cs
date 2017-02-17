@@ -207,7 +207,6 @@ namespace com.bricksandmortarstudio.SendGridSync.Helper
                     emails.Skip( takenCount ).Take( SendGridRequest.SENDGRID_ADD_RECEIPIENT_MAX_COUNT ),
                     listId, apiKey );
             }
-
         }
 
         /// <summary>
