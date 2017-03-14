@@ -8,13 +8,15 @@ using Rock;
 using Rock.Attribute;
 using Rock.Data;
 using Rock.Model;
+using Rock.Web.Cache;
 
 namespace com.bricksandmortarstudio.SendGridSync.Jobs
 {
     [TextField( "API Key", "The SendGrid API key.", false, "", "", order: 3 )]
     [CampusField( "Campus", "The campus that should be synced", true, "", false, key: "campus", order: 1 )]
     [IntegerField( "Existing Person Update Interval", "The number of days before an existing SendGrid record should be resynced", true, 7, key: "dayInterval", order: 2 )]
-    [TextField( "List Name", "The SendGrid" )]
+    [TextField( "List Name", "The SendGrid list to sync to" )]
+    [IntegerField("Timeout", "The number of seconds to use before the database connection times out", true, 720)]
     [DisallowConcurrentExecution]
     public class SyncCampustoList : IJob
     {
@@ -24,6 +26,7 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
             string apiKey = dataMap.GetString( "APIKey" );
             string listName = dataMap.GetString( "ListName" );
             string campusGuid = dataMap.GetString( "campus" );
+            int timeout = dataMap.GetIntFromString("Timeout");
 
             var campus = campusGuid.AsGuidOrNull();
 
@@ -48,15 +51,19 @@ namespace com.bricksandmortarstudio.SendGridSync.Jobs
 
             var familyGuid = Rock.SystemGuid.GroupType.GROUPTYPE_FAMILY.AsGuid();
 
+
+            int activeRecordStatusValueId = DefinedValueCache.Read( Rock.SystemGuid.DefinedValue.PERSON_RECORD_STATUS_ACTIVE ).Id;
+
             var rockContext = new RockContext();
-            rockContext.Database.CommandTimeout = 360;
+            rockContext.Database.CommandTimeout = timeout;
+
             var campusAttendeesPersonAlias = new GroupService( rockContext )
                 .Queryable()
                 .AsNoTracking()
                 .Where( g => g.GroupType.Guid == familyGuid && g.Campus.Guid == campus.Value )
                 .SelectMany( g => g.Members )
                 .Select( gm => gm.Person )
-                .Where( p => p.IsEmailActive && p.Email != null && p.Email != string.Empty && p.EmailPreference == EmailPreference.EmailAllowed )
+                .Where( p => !p.IsDeceased && p.RecordStatusValueId == activeRecordStatusValueId && p.IsEmailActive && p.Email != null && p.Email != string.Empty && p.EmailPreference == EmailPreference.EmailAllowed )
                 .Select( p => p.Aliases.FirstOrDefault() );
             var campusAttendeesPersonAliasIds = campusAttendeesPersonAlias.Select( a => a.Id );
 
